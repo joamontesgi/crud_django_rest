@@ -6,3 +6,10 @@ class Book(models.Model):
     
     def __str__(self):
         return f"{self.name} (${self.price})"
+
+class Author(models.Model):
+    name = models.CharField(max_length=100)
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='authors')
+
+    def __str__(self):
+        return self.name
