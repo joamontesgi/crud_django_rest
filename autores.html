@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>CRUD de Autores</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+
+        h1 {
+            color: #444;
+        }
+
+        form {
+            margin-bottom: 20px;
+        }
+
+        input, select {
+            padding: 6px;
+            margin: 5px;
+        }
+
+        button {
+            padding: 6px 12px;
+            margin-left: 5px;
+        }
+
+        .author {
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+        }
+
+        .author-buttons {
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>CRUD de Autores</h1>
+    <a href="index.html">Gestionar Libros</a>
+
+    <form id="author-form">
+        <input type="hidden" id="author-id">
+        <input type="text" id="author-name" placeholder="Nombre del autor" required>
+        <select id="book-select" required>
+            <option value="">Selecciona un libro</option>
+        </select>
+        <button type="submit">Guardar</button>
+        <button type="button" id="cancel-edit" style="display:none;">Cancelar</button>
+    </form>
+
+    <div id="authors-container">Cargando autores...</div>
+
+    <script>
+        const authorApi = 'http://localhost:8000/api/authors/';
+        const bookApi = 'http://localhost:8000/api/books/';
+        const authorForm = document.getElementById('author-form');
+        const authorsContainer = document.getElementById('authors-container');
+        const cancelBtn = document.getElementById('cancel-edit');
+        const bookSelect = document.getElementById('book-select');
+
+        let editing = false;
+
+        async function loadBooks() {
+            const res = await fetch(bookApi);
+            const books = await res.json();
+            bookSelect.innerHTML = '<option value="">Selecciona un libro</option>';
+            books.forEach(book => {
+                const option = document.createElement('option');
+                option.value = book.id;
+                option.textContent = book.name;
+                bookSelect.appendChild(option);
+            });
+        }
+
+        async function loadAuthors() {
+            const res = await fetch(authorApi);
+            const authors = await res.json();
+            authorsContainer.innerHTML = '';
+
+            if (authors.length === 0) {
+                authorsContainer.innerText = 'No hay autores registrados.';
+                return;
+            }
+
+            const resBooks = await fetch(bookApi);
+            const books = await resBooks.json();
+            const bookMap = {};
+            books.forEach(book => bookMap[book.id] = book.name);
+
+            authors.forEach(author => {
+                const div = document.createElement('div');
+                div.className = 'author';
+                div.innerHTML = `
+                    <strong>${author.name}</strong><br>
+                    Libro: ${bookMap[author.book] || 'No asignado'}
+                    <div class="author-buttons">
+                        <button onclick="editAuthor(${author.id}, '${author.name}', ${author.book})">Editar</button>
+                        <button onclick="deleteAuthor(${author.id})">Eliminar</button>
+                    </div>
+                `;
+                authorsContainer.appendChild(div);
+            });
+        }
+
+        authorForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('author-id').value;
+            const name = document.getElementById('author-name').value;
+            const book = document.getElementById('book-select').value;
+
+            const data = { name, book };
+
+            let url = authorApi;
+            let method = 'POST';
+
+            if (editing) {
+                url += id + '/';
+                method = 'PUT';
+            }
+
+            const res = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            if (res.ok) {
+                authorForm.reset();
+                cancelBtn.style.display = 'none';
+                editing = false;
+                loadAuthors();
+            } else {
+                alert('Error al guardar el autor');
+            }
+        });
+
+        async function deleteAuthor(id) {
+            if (!confirm('¿Estás seguro de eliminar este autor?')) return;
+
+            const res = await fetch(authorApi + id + '/', {
+                method: 'DELETE',
+            });
+
+            if (res.ok) {
+                loadAuthors();
+            } else {
+                alert('Error al eliminar el autor');
+            }
+        }
+
+        function editAuthor(id, name, bookId) {
+            document.getElementById('author-id').value = id;
+            document.getElementById('author-name').value = name;
+            document.getElementById('book-select').value = bookId;
+            cancelBtn.style.display = 'inline';
+            editing = true;
+        }
+
+        cancelBtn.addEventListener('click', () => {
+            authorForm.reset();
+            document.getElementById('author-id').value = '';
+            editing = false;
+            cancelBtn.style.display = 'none';
+        });
+
+        loadBooks();
+        loadAuthors();
+    </script>
+
+</body>
+</html>
